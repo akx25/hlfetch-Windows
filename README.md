@@ -1,3 +1,12 @@
+THIS WORK IS NOT DONE BY ME! I JUST FIXED A COUPLE THINGS SO THIS AMAZING HALF-LIFE STYLE NEOFETCH CAN RUN ON WINDOWS!
+
+Original: https://github.com/NETGETD/hlfetch
+
+You need to install psutil & Python in order for this tool to work.
++ Install Python: https://www.python.org/downloads/
++ Install psutil: https://pypi.org/project/psutil/
+
+
 HALF LIFE - Lambda Complex Field Operations Terminal
 or hlfetch
 
