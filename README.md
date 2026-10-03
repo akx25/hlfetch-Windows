@@ -1,7 +1,7 @@
 # THIS WORK IS NOT DONE BY ME! I JUST FIXED A COUPLE THINGS SO THIS AMAZING HALF-LIFE STYLE NEOFETCH CAN RUN ON WINDOWS!
 
 ## A video of it (preview)
-+ https://www.reddit.com/r/HalfLife/comments/1s0avyr/comment/pdkz3bk/?context=3
++ https://www.reddit.com/r/HalfLife/comments/1s0avyr/halflife_style_neofetch/
 
 \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
 
