@@ -1,5 +1,8 @@
 # THIS WORK IS NOT DONE BY ME! I JUST FIXED A COUPLE THINGS SO THIS AMAZING HALF-LIFE STYLE NEOFETCH CAN RUN ON WINDOWS!
 
+## A video of it (preview)
++ https://www.reddit.com/r/HalfLife/comments/1s0avyr/comment/pdkz3bk/?context=3
+
 Original: https://github.com/NETGETD/hlfetch
 
 You need to install psutil & Python in order for this tool to work.
