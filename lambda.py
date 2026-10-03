@@ -1,11 +1,30 @@
 #!/usr/bin/env python3
-import time, sys, math, os, platform, socket, shutil, datetime, select, getpass
+
+import time
+import sys
+import math
+import platform
+import socket
+import shutil
+import datetime
+import getpass
 
 try:
-    import tty, termios
-    has_termios = True
-except:
-    has_termios = False
+    import msvcrt
+except ImportError:
+    msvcrt = None
+
+try:
+    import psutil
+except ImportError:
+    print("psutil puuttuu.")
+    print("Asenna se komennolla: py -m pip install psutil")
+    sys.exit(1)
+
+
+# ─────────────────────────────────────────────
+# ANSI / TERMINAL
+# ─────────────────────────────────────────────
 
 ORANGE = "\033[38;5;208m"
 RESET = "\033[0m"
@@ -16,147 +35,226 @@ ALT_OFF = "\033[?1049l"
 CLEAR = "\033[2J"
 HOME = "\033[H"
 
-raw_logo = """
-                 .:::::.                
-             -+###*****##*=:            
-          .+##+:..      .-*%#-          
-         -%#-   -##%*      .+%*.        
-        =%*      ..#%+       :%#.       
-       .%#         +%%-       -%*       
-       =%-        +%#%%.       #%.      
-       +%-      .*@+ +%#       *%.      
-       -@+     :#%=   *%+     .%#       
-        *%-   =%%-    .#%+++  *%-       
-         *%= .++.      :#+=::#%-        
-          -##=.           :*%*.         
-            -*##+=----=+*##+:           
-               :-=+++++=-.              
+
+# ─────────────────────────────────────────────
+# LOGO
+# ─────────────────────────────────────────────
+
+raw_logo = r"""
+                 .:::::.
+             -+###*****##*=:
+          .+##+:..      .-*%#-
+         -%#-   -##%*      .+%*.
+        =%*      ..#%+       :%#.
+       .%#         +%%-       -*%.
+       =%-        +%#%%.       #%.
+       +%-      .*@+ +%#       *%.
+       -@+     :#%=   *%+     .%#
+        *%-   =%%-    .#%+++  *%-
+         *%= .++.      :#+=::#%-
+          -##=.           :*%*.
+            -*##+=----=+*##+:
+               :-=+++++=-.
 """
 
-logo = [l for l in raw_logo.splitlines() if l.strip()]
+logo = [line for line in raw_logo.splitlines() if line.strip()]
 h = len(logo)
-w = max(len(l) for l in logo)
-logo = [l.ljust(w) for l in logo]
+w = max(len(line) for line in logo)
+logo = [line.ljust(w) for line in logo]
 
-def mv(r,c):
-    return f"\033[{r};{c}H"
+
+def mv(row, col):
+    return f"\033[{row};{col}H"
+
+
+# ─────────────────────────────────────────────
+# SYSTEM INFO
+# ─────────────────────────────────────────────
 
 def get_os():
-    try:
-        with open("/etc/os-release") as f:
-            for line in f:
-                if line.startswith("PRETTY_NAME="):
-                    return line.split("=")[1].strip().strip('"')
-    except:
-        pass
-    return platform.system()
+    return platform.platform()
+
 
 def get_cpu():
     try:
-        with open("/proc/cpuinfo") as f:
-            for line in f:
-                if "model name" in line:
-                    name = line.split(":")[1].strip()
-                    for s in ["AMD ", "Intel(R) ", "Core(TM) ", "CPU ", " Graphics"]:
-                        name = name.replace(s, "")
-                    name = name.replace(" with Radeon Graphics", "")
-                    return name.strip()
-    except:
-        pass
-    return platform.processor() or "unknown"
+        name = platform.processor()
+
+        if not name:
+            name = platform.uname().processor
+
+        if not name:
+            return "unknown"
+
+        return name.strip()
+
+    except Exception:
+        return "unknown"
+
 
 def temp():
+    """
+    Windows ei yleensä tarjoa CPU-lämpötilaa
+    helposti ilman valmistajakohtaista rajapintaa.
+    psutil voi joillain koneilla tarjota lämpötila-antureita.
+    """
+
     try:
-        t = float(open("/sys/class/thermal/thermal_zone0/temp").read())
-        if t > 1000:
-            t /= 1000
-        return f"{t:.1f}°C"
-    except:
-        return "unknown"
+        sensors = psutil.sensors_temperatures()
+
+        if sensors:
+            for entries in sensors.values():
+                for entry in entries:
+                    if entry.current:
+                        return f"{entry.current:.1f}°C"
+
+    except Exception:
+        pass
+
+    return "N/A"
+
 
 def load():
+    """
+    Windowsissa ei ole Linuxin load averagea.
+    Näytetään sen sijaan CPU-käyttö.
+    """
+
     try:
-        l = os.getloadavg()
-        return f"{l[0]:.2f} {l[1]:.2f} {l[2]:.2f}"
-    except:
+        cpu = psutil.cpu_percent(interval=None)
+        return f"CPU {cpu:.1f}%"
+    except Exception:
         return "unknown"
 
+
 def get_iface():
+    """
+    Etsii aktiivisimman verkkoliitännän.
+    """
+
     try:
-        with open("/proc/net/dev") as f:
-            best = None
-            best_total = 0
-            for line in f:
-                if ":" not in line:
-                    continue
-                name, data = line.split(":",1)
-                name = name.strip()
-                if name == "lo":
-                    continue
-                p = data.split()
-                total = int(p[0]) + int(p[8])
-                if total > best_total:
-                    best_total = total
-                    best = name
-            return best
-    except:
+        counters = psutil.net_io_counters(pernic=True)
+
+        best = None
+        best_total = 0
+
+        for name, stats in counters.items():
+            total = stats.bytes_sent + stats.bytes_recv
+
+            if total > best_total:
+                best_total = total
+                best = name
+
+        return best
+
+    except Exception:
         return None
 
+
 def read_net(iface):
+    if not iface:
+        return 0, 0
+
     try:
-        with open("/proc/net/dev") as f:
-            for line in f:
-                if iface in line:
-                    p = line.split()
-                    return int(p[1]), int(p[9])
-    except:
+        counters = psutil.net_io_counters(pernic=True)
+
+        if iface in counters:
+            stats = counters[iface]
+            return stats.bytes_recv, stats.bytes_sent
+
+    except Exception:
         pass
-    return 0,0
+
+    return 0, 0
+
 
 def uptime():
     try:
-        u = float(open("/proc/uptime").read().split()[0])
-        return f"{int(u//3600)}h {int((u%3600)//60)}m"
-    except:
+        seconds = time.time() - psutil.boot_time()
+
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+
+        days = hours // 24
+        hours %= 24
+
+        if days > 0:
+            return f"{days}d {hours}h {minutes}m"
+
+        return f"{hours}h {minutes}m"
+
+    except Exception:
         return "unknown"
+
 
 def ram():
     try:
-        m = {}
-        for l in open("/proc/meminfo"):
-            k,v = l.split(":",1)
-            m[k] = int(v.split()[0])
-        return f"{(m['MemTotal']-m['MemAvailable'])//1024}MiB / {m['MemTotal']//1024}MiB"
-    except:
+        mem = psutil.virtual_memory()
+
+        used = mem.used // (1024 ** 2)
+        total = mem.total // (1024 ** 2)
+
+        return f"{used}MiB / {total}MiB"
+
+    except Exception:
         return "unknown"
+
 
 def disk():
     try:
-        d = shutil.disk_usage("/")
-        return f"{(d.total-d.free)//(1024**3)}GiB / {d.total//(1024**3)}GiB"
-    except:
+        d = shutil.disk_usage("C:\\")
+
+        used = (d.total - d.free) // (1024 ** 3)
+        total = d.total // (1024 ** 3)
+
+        return f"{used}GiB / {total}GiB"
+
+    except Exception:
         return "unknown"
+
+
+# ─────────────────────────────────────────────
+# ANIMATION
+# ─────────────────────────────────────────────
 
 def frame(scale, flip):
     out = []
+
     tw = max(2, int(w * scale))
     cx = w / 2
+
     for row in logo:
+
         line = ""
+
         for j in range(tw):
-            x = cx + (j - tw/2) / scale
+
+            x = cx + (j - tw / 2) / scale
             xi = int(x + 0.5)
-            line += row[xi] if 0 <= xi < w else " "
+
+            if 0 <= xi < w:
+                line += row[xi]
+            else:
+                line += " "
+
         if flip:
             line = line[::-1]
+
         out.append(line)
+
     return out
 
+
+# ─────────────────────────────────────────────
+# INFO PANEL
+# ─────────────────────────────────────────────
+
 def info(down, up):
+
     now = datetime.datetime.now().strftime("%H:%M:%S")
+
     return [
         f"OS:       {get_os()}",
-        f"Kernel:   {platform.uname().release}",
+        f"Kernel:   {platform.release()}",
         f"Arch:     {platform.machine()}",
         f"Uptime:   {uptime()}",
         f"RAM:      {ram()}",
@@ -171,7 +269,9 @@ def info(down, up):
         f"Platform: {platform.system()}",
     ]
 
+
 def footer():
+
     return [
         "Sector:   C - Lambda Complex",
         "Clearance:Level 3",
@@ -179,83 +279,239 @@ def footer():
         "System Status: stable",
     ]
 
+
+# ─────────────────────────────────────────────
+# WINDOWS KEY INPUT
+# ─────────────────────────────────────────────
+
+def key_pressed():
+
+    if msvcrt is None:
+        return False
+
+    return msvcrt.kbhit()
+
+
+def read_key():
+
+    if msvcrt is None:
+        return
+
+    try:
+        msvcrt.getch()
+    except Exception:
+        pass
+
+
+# ─────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────
+
 def main():
-    cols,_ = shutil.get_terminal_size()
+
+    cols, rows = shutil.get_terminal_size()
+
+    # Estetään liian pieni terminaali
+    if cols < 70:
+        cols = 70
 
     top = 5
     left = 4
+
     right = int(cols * 0.55) - 1
 
     max_w = right - left - 2
     max_info = cols - right - 3
 
     iface = get_iface()
+
     prx, ptx = read_net(iface)
+
     last_measure = time.time()
 
-    down = up = 0
+    down = 0
+    up = 0
 
-    frames = [frame(0.2 + 0.8 * abs(math.cos(2*math.pi*k/120)), math.cos(2*math.pi*k/120)<0) for k in range(120)]
-    draw_w = min(max(len(l) for f in frames for l in f), max_w)
+    # Luodaan animaatiokehykset
+    frames = []
 
-    sys.stdout.write(ALT_ON + HIDE_CURSOR + CLEAR + HOME)
+    for k in range(120):
+
+        angle = 2 * math.pi * k / 120
+
+        scale = 0.2 + 0.8 * abs(math.cos(angle))
+        flip = math.cos(angle) < 0
+
+        frames.append(frame(scale, flip))
+
+    draw_w = min(
+        max(len(line) for f in frames for line in f),
+        max_w
+    )
+
+    # Alternate screen + kursori piiloon
+    sys.stdout.write(
+        ALT_ON +
+        HIDE_CURSOR +
+        CLEAR +
+        HOME
+    )
 
     title = "BLACK MESA RESEARCH FACILITY"
     sub = "Lambda Complex - Field Operations Terminal"
 
-    sys.stdout.write(mv(1,(cols-len(title))//2)+ORANGE+title+RESET)
-    sys.stdout.write(mv(2,(cols-len(sub))//2)+ORANGE+sub+RESET)
-    sys.stdout.write(mv(3,1)+ORANGE+"─"*cols+RESET)
+    sys.stdout.write(
+        mv(1, max(1, (cols - len(title)) // 2)) +
+        ORANGE +
+        title +
+        RESET
+    )
+
+    sys.stdout.write(
+        mv(2, max(1, (cols - len(sub)) // 2)) +
+        ORANGE +
+        sub +
+        RESET
+    )
+
+    sys.stdout.write(
+        mv(3, 1) +
+        ORANGE +
+        "─" * cols +
+        RESET
+    )
 
     lower = top + h + 1
-    sys.stdout.write(mv(lower,1)+ORANGE+"─"*cols+RESET)
+
+    sys.stdout.write(
+        mv(lower, 1) +
+        ORANGE +
+        "─" * cols +
+        RESET
+    )
 
     ft = lower + 1
-    for i,l in enumerate(footer()):
-        sys.stdout.write(mv(ft+i,(cols-len(l))//2)+ORANGE+l+RESET)
+
+    for i, line in enumerate(footer()):
+
+        sys.stdout.write(
+            mv(ft + i, max(1, (cols - len(line)) // 2)) +
+            ORANGE +
+            line +
+            RESET
+        )
 
     hint = "[ Press any key to exit ]"
-    sys.stdout.write(mv(ft+len(footer())+1,(cols-len(hint))//2)+ORANGE+hint+RESET)
+
+    sys.stdout.write(
+        mv(
+            ft + len(footer()) + 1,
+            max(1, (cols - len(hint)) // 2)
+        ) +
+        ORANGE +
+        hint +
+        RESET
+    )
 
     sys.stdout.flush()
 
     try:
+
+        frame_index = 0
+
         while True:
-            if select.select([sys.stdin],[],[],0)[0]:
+
+            # Windowsissa msvcrt hoitaa näppäimistön
+            if key_pressed():
+                read_key()
                 break
 
             now = time.time()
+
+            # Verkkonopeuden päivitys
             if now - last_measure >= 0.1:
+
                 rx, tx = read_net(iface)
+
                 dt = now - last_measure
 
-                down = (rx - prx) / 1024 / dt
-                up = (tx - ptx) / 1024 / dt
+                if dt > 0:
 
-                prx, ptx = rx, tx
+                    down = (rx - prx) / 1024 / dt
+                    up = (tx - ptx) / 1024 / dt
+
+                    # Suojaus mahdollisia laskuvirheitä vastaan
+                    down = max(0, down)
+                    up = max(0, up)
+
+                prx = rx
+                ptx = tx
+
                 last_measure = now
 
-            for f in frames:
-                data = info(down, up)
+            f = frames[frame_index]
 
-                for i in range(h):
-                    sys.stdout.write(mv(top+i,left)+" "*draw_w)
+            data = info(down, up)
 
-                for i,l in enumerate(data):
-                    sys.stdout.write(mv(top+i,right)+ORANGE+l.ljust(max_info)+RESET)
+            # Tyhjennä logoalue
+            for i in range(h):
 
-                for i in range(h):
-                    line = f[i]
-                    if len(line) > draw_w:
-                        cut = (len(line)-draw_w)//2
-                        line = line[cut:cut+draw_w]
-                    sys.stdout.write(mv(top+i,left)+ORANGE+line.center(draw_w)+RESET)
+                sys.stdout.write(
+                    mv(top + i, left) +
+                    " " * draw_w
+                )
 
-                sys.stdout.flush()
-                time.sleep(0.05)
+            # Oikean puolen tiedot
+            for i, line in enumerate(data):
+
+                sys.stdout.write(
+                    mv(top + i, right) +
+                    ORANGE +
+                    line.ljust(max_info) +
+                    RESET
+                )
+
+            # Logo
+            for i in range(h):
+
+                line = f[i]
+
+                if len(line) > draw_w:
+
+                    cut = (len(line) - draw_w) // 2
+
+                    line = line[
+                        cut:
+                        cut + draw_w
+                    ]
+
+                sys.stdout.write(
+                    mv(top + i, left) +
+                    ORANGE +
+                    line.center(draw_w) +
+                    RESET
+                )
+
+            sys.stdout.flush()
+
+            frame_index = (frame_index + 1) % len(frames)
+
+            time.sleep(0.05)
+
+    except KeyboardInterrupt:
+        pass
 
     finally:
-        sys.stdout.write(SHOW_CURSOR+ALT_OFF)
+
+        # Palautetaan normaali terminaali
+        sys.stdout.write(
+            RESET +
+            SHOW_CURSOR +
+            ALT_OFF
+        )
+
+        sys.stdout.flush()
+
 
 if __name__ == "__main__":
     main()
