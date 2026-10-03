@@ -22,9 +22,6 @@ except ImportError:
     sys.exit(1)
 
 
-# ─────────────────────────────────────────────
-# ANSI / TERMINAL
-# ─────────────────────────────────────────────
 
 ORANGE = "\033[38;5;208m"
 RESET = "\033[0m"
@@ -36,9 +33,6 @@ CLEAR = "\033[2J"
 HOME = "\033[H"
 
 
-# ─────────────────────────────────────────────
-# LOGO
-# ─────────────────────────────────────────────
 
 raw_logo = r"""
                  .:::::.
@@ -67,9 +61,7 @@ def mv(row, col):
     return f"\033[{row};{col}H"
 
 
-# ─────────────────────────────────────────────
-# SYSTEM INFO
-# ─────────────────────────────────────────────
+
 
 def get_os():
     return platform.platform()
@@ -212,9 +204,7 @@ def disk():
         return "unknown"
 
 
-# ─────────────────────────────────────────────
-# ANIMATION
-# ─────────────────────────────────────────────
+
 
 def frame(scale, flip):
     out = []
@@ -244,9 +234,7 @@ def frame(scale, flip):
     return out
 
 
-# ─────────────────────────────────────────────
-# INFO PANEL
-# ─────────────────────────────────────────────
+
 
 def info(down, up):
 
@@ -280,9 +268,7 @@ def footer():
     ]
 
 
-# ─────────────────────────────────────────────
-# WINDOWS KEY INPUT
-# ─────────────────────────────────────────────
+
 
 def key_pressed():
 
@@ -303,9 +289,7 @@ def read_key():
         pass
 
 
-# ─────────────────────────────────────────────
-# MAIN
-# ─────────────────────────────────────────────
+
 
 def main():
 
@@ -421,7 +405,7 @@ def main():
 
         while True:
 
-            # Windowsissa msvcrt hoitaa näppäimistön
+            
             if key_pressed():
                 read_key()
                 break
@@ -440,7 +424,7 @@ def main():
                     down = (rx - prx) / 1024 / dt
                     up = (tx - ptx) / 1024 / dt
 
-                    # Suojaus mahdollisia laskuvirheitä vastaan
+                    
                     down = max(0, down)
                     up = max(0, up)
 
@@ -453,7 +437,7 @@ def main():
 
             data = info(down, up)
 
-            # Tyhjennä logoalue
+            
             for i in range(h):
 
                 sys.stdout.write(
@@ -461,7 +445,7 @@ def main():
                     " " * draw_w
                 )
 
-            # Oikean puolen tiedot
+            
             for i, line in enumerate(data):
 
                 sys.stdout.write(
@@ -471,7 +455,7 @@ def main():
                     RESET
                 )
 
-            # Logo
+            
             for i in range(h):
 
                 line = f[i]
@@ -503,7 +487,7 @@ def main():
 
     finally:
 
-        # Palautetaan normaali terminaali
+        
         sys.stdout.write(
             RESET +
             SHOW_CURSOR +
