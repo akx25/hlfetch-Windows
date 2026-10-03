@@ -17,8 +17,8 @@ except ImportError:
 try:
     import psutil
 except ImportError:
-    print("psutil puuttuu.")
-    print("Asenna se komennolla: py -m pip install psutil")
+    print("psutil is missing!")
+    print("Install it by typing this in terminal: py -m pip install psutil")
     sys.exit(1)
 
 
@@ -84,11 +84,7 @@ def get_cpu():
 
 
 def temp():
-    """
-    Windows ei yleensä tarjoa CPU-lämpötilaa
-    helposti ilman valmistajakohtaista rajapintaa.
-    psutil voi joillain koneilla tarjota lämpötila-antureita.
-    """
+
 
     try:
         sensors = psutil.sensors_temperatures()
@@ -106,10 +102,7 @@ def temp():
 
 
 def load():
-    """
-    Windowsissa ei ole Linuxin load averagea.
-    Näytetään sen sijaan CPU-käyttö.
-    """
+
 
     try:
         cpu = psutil.cpu_percent(interval=None)
@@ -119,9 +112,7 @@ def load():
 
 
 def get_iface():
-    """
-    Etsii aktiivisimman verkkoliitännän.
-    """
+
 
     try:
         counters = psutil.net_io_counters(pernic=True)
@@ -295,7 +286,7 @@ def main():
 
     cols, rows = shutil.get_terminal_size()
 
-    # Estetään liian pieni terminaali
+
     if cols < 70:
         cols = 70
 
@@ -316,7 +307,7 @@ def main():
     down = 0
     up = 0
 
-    # Luodaan animaatiokehykset
+
     frames = []
 
     for k in range(120):
@@ -333,7 +324,7 @@ def main():
         max_w
     )
 
-    # Alternate screen + kursori piiloon
+
     sys.stdout.write(
         ALT_ON +
         HIDE_CURSOR +
@@ -412,7 +403,7 @@ def main():
 
             now = time.time()
 
-            # Verkkonopeuden päivitys
+
             if now - last_measure >= 0.1:
 
                 rx, tx = read_net(iface)
